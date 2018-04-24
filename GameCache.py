@@ -44,7 +44,7 @@ class GameCache:
 
         self.make_sequential()
 
-        optimal_values = np.zeros(self._values.shape)
+        optimal_values = self._values.copy()
         
         # set the last value
         action = self.action(-1)
