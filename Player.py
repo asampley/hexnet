@@ -70,10 +70,10 @@ class Player:
         action = np.argmax(self.value(state))
         return action
 
-    def learn(self, states, action_values):
+    def learn(self, states, next_ims, actions, rewards, gamma):
         """
         Learn action values for states.
         states is a (N, width, height, time_steps) size numpy array.
         action_values is a (N, actions) size numpy array.
         """
-        self.net.train(states, action_values)
+        self.net.train(states, next_ims, actions, rewards, gamma)

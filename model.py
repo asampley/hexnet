@@ -7,34 +7,52 @@ class Net:
 
         self.WIDTH = params['WIDTH']            # int:    width of state image
         self.HEIGHT = params['HEIGHT']          # int:    height of state image
-        self.TIME_STEPS = params['TIME_STEPS']  # int:    number of time steps sent together in a state
+        self.TIME_STEPS = params['TIME_STEPS']  # int:    number of time steps to evaluate as a state
         self.ACTIONS = params['ACTIONS']        # int:    number of actions available
         LEARNING_RATE = params['LEARNING_RATE'] # float: learning rate for adam optimizer
         self.SAVE_DIR = params['SAVE_DIR']      # string: directory to save summaries and the neural network
 
         # data, both input and labels
         self.states = tf.placeholder(tf.float32, (None, self.WIDTH, self.HEIGHT, self.TIME_STEPS), 'state') # (batch, width, height, time_step)
-        self.values = tf.placeholder(tf.float32, (None, self.ACTIONS), 'values') # (batch, action)
+        self.poststate = tf.placeholder(tf.float32, (None, self.WIDTH, self.HEIGHT, 1), 'poststate') # (batch, width, height, 1)
+        self.action = tf.placeholder(tf.int32, (None,), 'action')
+        self.reward = tf.placeholder(tf.float32, (None,), 'reward')
+        self.gamma = tf.placeholder(tf.float32, (), 'gamma')
+
+        # create parallel path for getting the value of the subsequent state
+        self.states2 = tf.concat([self.states[...,1:], self.poststate], axis=-1)
+
         # Set variable for dropout of each layer
         self.keep_prob = tf.placeholder(tf.float32, (), name='keep_prob') # scalar
         
         # global step counter
         self._global_step = tf.Variable(0, name='global_step', trainable=False)
 
-        # network
+        # network with path for input states and expected output
         conv1 = self.conv('conv1', self.states, [5,5], [2,2], self.TIME_STEPS, 32)
+        conv1_2 = self.conv('conv1', self.states2, [5,5], [2,2], self.TIME_STEPS, 32)
         pool1 = tf.nn.pool(conv1, [2,2], 'MAX', padding='SAME', name='pool1')
+        pool1_2 = tf.nn.pool(conv1_2, [2,2], 'MAX', padding='SAME', name='pool1')
         conv2 = self.conv('conv2', pool1, [5,5], [2,2], 32, 64)
+        conv2_2 = self.conv('conv2', pool1_2, [5,5], [2,2], 32, 64)
         pool2 = tf.nn.pool(conv2, [2,2], 'MAX', padding='SAME', name='pool2')
+        pool2_2 = tf.nn.pool(conv2, [2,2], 'MAX', padding='SAME', name='pool2')
         flat1 = tf.reshape(pool2, [-1, pool2.get_shape()[1] * pool2.get_shape()[2] * pool2.get_shape()[3]])
-        dense1 = tf.layers.dense(flat1, 1024, activation=tf.nn.relu)
-        dense2 = tf.layers.dense(dense1, self.ACTIONS)
+        flat1_2 = tf.reshape(pool2_2, [-1, pool2_2.get_shape()[1] * pool2_2.get_shape()[2] * pool2_2.get_shape()[3]])
+        dense1 = tf.layers.dense(flat1, 1024, activation=tf.nn.relu, name='dense1')
+        dense1_2 = tf.layers.dense(flat1_2, 1024, activation=tf.nn.relu, name='dense1', reuse=True)
+        dense2 = tf.layers.dense(dense1, self.ACTIONS, name='dense2')
+        dense2_2 = tf.layers.dense(dense1_2, self.ACTIONS, name='dense2', reuse=True)
 
         self.output = dense2
+        # create target output as the original output, but for the selected actions make it reward + gamma * (value at best action)
+        self.action_mask = tf.one_hot(self.action, self.ACTIONS, 1.0, 0.0, axis=-1, dtype=tf.float32)
+        self.output_increment = -self.output + tf.tile(tf.expand_dims(self.reward + self.gamma * tf.reduce_max(dense2_2, axis=-1), axis=-1), (1, self.ACTIONS))
+        self.target_output = tf.stop_gradient(self.output + tf.multiply(self.action_mask, self.output_increment))
 
         # compute euclidean distance error
         with tf.name_scope("error"):
-            self.error = tf.reduce_mean(tf.squared_difference(self.output, self.values))
+            self.error = tf.reduce_mean(tf.squared_difference(self.output, self.target_output))
 
         # optimize
         self.train_fn = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(self.error, global_step=self._global_step)
@@ -42,7 +60,7 @@ class Net:
         # Make summary op and file
         with tf.name_scope('summary'):
             tf.summary.scalar('error', self.error)
-            tf.summary.histogram('values', self.values)
+            tf.summary.histogram('target_output', self.target_output)
             tf.summary.histogram('output', self.output)
 
             self.summaries = tf.summary.merge_all()
@@ -56,7 +74,7 @@ class Net:
 
     def conv(self, name, input, filter_hw, stride_hw, channels_in, channels_out):
         # create convolution layer
-        with tf.variable_scope(name) as scope:
+        with tf.variable_scope(name, reuse=tf.AUTO_REUSE) as scope:
             w = tf.get_variable('weights', filter_hw + [channels_in, channels_out])
             b = tf.get_variable('biases', [channels_out])
             conv = tf.nn.conv2d(input, w, strides=[1] + stride_hw + [1], padding='SAME', name=scope.name)
@@ -69,10 +87,13 @@ class Net:
     def restore(self):
         self.saver.restore(self.session, os.path.join(self.SAVE_DIR, 'model.ckpt'))
     
-    def train(self, states, values, keep_prob = 0.5):
+    def train(self, states, next_image, action, reward, gamma, keep_prob = 0.5):
         feed_dict = {
             self.states: states,
-            self.values: values,
+            self.poststate: next_image,
+            self.action: action,
+            self.reward: reward,
+            self.gamma: gamma,
             self.keep_prob: keep_prob
         }
 
@@ -94,11 +115,14 @@ class Net:
             [self.output],
             feed_dict=feed_dict)[0]
 
-    def summarize(self, states, values):
+    def summarize(self, states, next_image, action, reward, gamma):
         feed_dict = {
             self.states: states,
-            self.values: values,
-            self.keep_prob: 1.0,
+            self.poststate: next_image,
+            self.action: action,
+            self.reward: reward,
+            self.gamma: gamma,
+            self.keep_prob: 1.0
         }
 
         summaries, step = self.session.run(

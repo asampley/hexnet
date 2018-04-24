@@ -58,24 +58,29 @@ def train():
 
         if len(gc) == 0:
             continue
-
-        ov = gc.optimal_values(GAMMA)
+        
         # randomly permute states and iterate
-        indices = np.random.permutation(np.arange(state.shape[-1] - 1, len(gc)))
+        indices = np.random.permutation(np.arange(state.shape[-1] - 1, len(gc) - 1))
         
         for batch_i in range(0, math.ceil(indices.shape[0] / BATCH_SIZE)):
             training_states = []
-            training_values = []
+            training_next_ims = []
+            training_rewards = []
+            training_actions = []
             for im_i in range(0, BATCH_SIZE):
                 i = batch_i * BATCH_SIZE + im_i
                 if i >= len(indices):
                     break
                 training_states += [np.moveaxis(gc.state(slice(indices[i] - state.shape[-1] + 1, indices[i] + 1)), 0, -1)]
-                training_values += [ov[indices[i]]]
+                training_next_ims += [gc.state(indices[i] + 1)[...,np.newaxis]]
+                training_rewards += [gc.reward(indices[i])]
+                training_actions += [gc.action(indices[i])]
             training_states = np.stack(training_states)
-            training_values = np.stack(training_values)
+            training_next_ims = np.stack(training_next_ims)
+            training_rewards = np.stack(training_rewards)
+            training_actions = np.stack(training_actions)
 
-            player.learn(training_states, training_values)
+            player.learn(training_states, training_next_ims, training_actions, training_rewards, GAMMA)
     
 # run player
 newgame = False
