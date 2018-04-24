@@ -17,7 +17,7 @@ class Player:
                 'SAVE_DIR': 'model/'
                 }
         self.net = Net(params)
-        
+ 
         # action map maps action keys to functions of the form () -> ()
         self.actionMap = {
                 0: self.gc.go_left,
@@ -27,6 +27,15 @@ class Player:
 
         # policy is a function of the form (state) -> (action)
         self.policy = self.best_action
+
+    def save(self):
+        self.net.save()
+
+    def restore(self):
+        try:
+            self.net.restore()
+        except:
+            pass
 
     def set_window_to_focus(self):
         self.gc.set_window_to_focus()
