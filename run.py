@@ -73,6 +73,7 @@ def train():
  
 
 # run player
+newgame = False
 while True:
     # grab the frame of the game
     image_raw = window_grabber.grab()
@@ -95,10 +96,8 @@ while True:
         game_cache.push(image_state_previous, values_previous, action_previous, reward_previous)
 
     
-    if gameover:
-        # if the game is over, restart
-        player.gc.restart()
-        time_step = 0
+    if gameover and newgame:
+        newgame = False # prevent this code from being run twice in a row
 
         # write game over on display image
         cv2.putText(image_display, "Game Over", (0, image_display.shape[0]), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,255))
@@ -115,7 +114,14 @@ while True:
             game_caches += [GameCache()]
         game_cache = game_caches[game_index]
         game_cache.clear()
+        
+        # restart the game
+        player.gc.restart()
+        time_step = 0
+
     else:
+        newgame = True
+
         # if the game not over, add the new image to the state
         if time_step == 0:
             # repeat the image for each time_step
