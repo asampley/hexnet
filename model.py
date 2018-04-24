@@ -13,8 +13,8 @@ class Net:
         self.SAVE_DIR = params['SAVE_DIR']      # string: directory to save summaries and the neural network
 
         # data, both input and labels
-        self.states = tf.placeholder(tf.float32, (None, self.WIDTH, self.HEIGHT, self.TIME_STEPS), 'state') # (batch, width, height, time_step)
-        self.poststate = tf.placeholder(tf.float32, (None, self.WIDTH, self.HEIGHT, 1), 'poststate') # (batch, width, height, 1)
+        self.states = tf.placeholder(tf.float32, (None, self.HEIGHT, self.WIDTH, self.TIME_STEPS), 'state') # (batch, height, width, time_step)
+        self.poststate = tf.placeholder(tf.float32, (None, self.HEIGHT, self.WIDTH, 1), 'poststate') # (batch, height, width, 1)
         self.action = tf.placeholder(tf.int32, (None,), 'action')
         self.reward = tf.placeholder(tf.float32, (None,), 'reward')
         self.gamma = tf.placeholder(tf.float32, (), 'gamma')

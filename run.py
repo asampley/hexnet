@@ -27,8 +27,8 @@ game_cache = game_caches[0]
 # restore player if we can
 player.restore()
 
-# create array to store 'state' of game, which is a sequence of images in the shape (width, height, time_steps)
-state = np.zeros((256, 128, 4))
+# create array to store 'state' of game, which is a sequence of images in the shape (height, width, time_steps)
+state = np.zeros((128, 256, 4))
 
 # select window
 print("Select window in 3 seconds")
@@ -81,6 +81,9 @@ def train():
             training_actions = np.stack(training_actions)
 
             player.learn(training_states, training_next_ims, training_actions, training_rewards, GAMMA)
+
+        # do summary on whatever the last batch was
+        player.net.summarize(training_states, training_next_ims, training_actions, training_rewards, GAMMA)
     
 # run player
 newgame = False

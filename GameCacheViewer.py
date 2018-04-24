@@ -14,7 +14,7 @@ optimal_values = cache.optimal_values(0.9)
 
 def show_index(index):
     global cache, optimal_values
-    image = cache.state(index).copy()
+    image = cv2.cvtColor(cache.state(index), cv2.COLOR_GRAY2BGR)
     cv2.putText(image, 
             "Values: " + np.array2string(cache.values(index), floatmode='fixed', precision=1), 
             (0, image.shape[0]     ), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2)
