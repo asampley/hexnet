@@ -1,10 +1,22 @@
 from GameController import GameController
+from model import Net
 import numpy as np
 
 class Player:
     def __init__(self):
         # used to control the game
         self.gc = GameController()
+
+        # used to predict values of state
+        params = {
+                'LEARNING_RATE': 1e-2,
+                'WIDTH': 256,
+                'HEIGHT': 128,
+                'TIME_STEPS': 4,
+                'ACTIONS': 3,
+                'SAVE_DIR': 'model/'
+                }
+        self.net = Net(params)
         
         # action map maps action keys to functions of the form () -> ()
         self.actionMap = {
@@ -22,12 +34,13 @@ class Player:
     def value(self, state, action=None):
         """
         Returns a value for a state action pair.
+        state is a (width, height, time_steps) size numpy array.
         If action is None, return a numpy array of size (actions).
         """
         if action is None:
-            return np.zeros((len(self.actionMap),))
+            return self.net.predict(state[np.newaxis,...]).reshape((3,))
         else:
-            return np.zeros((1,))
+            return self.net.predict(state[np.newaxis,...]).reshape((3,))[action]
 
     def act(self, action):
         """
@@ -54,4 +67,4 @@ class Player:
         states is a (N, width, height, time_steps) size numpy array.
         action_values is a (N, actions) size numpy array.
         """
-        pass
+        self.net.train(states, action_values)
