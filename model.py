@@ -36,7 +36,7 @@ class Net:
         conv2 = self.conv('conv2', pool1, [5,5], [2,2], 32, 64)
         conv2_2 = self.conv('conv2', pool1_2, [5,5], [2,2], 32, 64)
         pool2 = tf.nn.pool(conv2, [2,2], 'MAX', padding='SAME', name='pool2')
-        pool2_2 = tf.nn.pool(conv2, [2,2], 'MAX', padding='SAME', name='pool2')
+        pool2_2 = tf.nn.pool(conv2_2, [2,2], 'MAX', padding='SAME', name='pool2')
         flat1 = tf.reshape(pool2, [-1, pool2.get_shape()[1] * pool2.get_shape()[2] * pool2.get_shape()[3]])
         flat1_2 = tf.reshape(pool2_2, [-1, pool2_2.get_shape()[1] * pool2_2.get_shape()[2] * pool2_2.get_shape()[3]])
         dense1 = tf.layers.dense(flat1, 1024, activation=tf.nn.relu, name='dense1')
@@ -74,12 +74,7 @@ class Net:
 
     def conv(self, name, input, filter_hw, stride_hw, channels_in, channels_out):
         # create convolution layer
-        with tf.variable_scope(name, reuse=tf.AUTO_REUSE) as scope:
-            w = tf.get_variable('weights', filter_hw + [channels_in, channels_out])
-            b = tf.get_variable('biases', [channels_out])
-            conv = tf.nn.conv2d(input, w, strides=[1] + stride_hw + [1], padding='SAME', name=scope.name)
-            conv = tf.nn.relu(conv + b)
-        return conv
+        return tf.layers.conv2d(input, channels_out, filter_hw, stride_hw, padding='SAME', name=name, reuse=tf.AUTO_REUSE, activation=tf.nn.relu)
 
     def save(self):
         self.saver.save(self.session, os.path.join(self.SAVE_DIR + 'model.ckpt'))
