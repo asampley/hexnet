@@ -5,11 +5,14 @@ from GameCache import GameCache
 import cv2
 import time
 import numpy as np
+import math
 
 # constants
 LIVE_REWARD = 1
 DEAD_REWARD = -10
 MAX_CACHES = 100
+GAMMA = 0.9
+BATCH_SIZE = 50
 
 # create information for the game
 player = Player()
@@ -39,6 +42,35 @@ values_previous = None
 action = None
 action_previous = None
 reward_previous = None
+
+def train():
+    global player, game_caches
+
+    # randomly permute game caches and iterate
+    for gci in np.random.permutation(len(game_caches)):
+        gc = game_caches[gci]
+
+        if len(gc) == 0:
+            continue
+
+        ov = gc.optimal_values(GAMMA)
+        # randomly permute states and iterate
+        indices = np.random.permutation(np.arange(state.shape[-1] - 1, len(gc)))
+        
+        for batch_i in range(0, math.ceil(indices.shape[0] / BATCH_SIZE)):
+            training_states = []
+            training_values = []
+            for im_i in range(0, BATCH_SIZE):
+                i = batch_i * BATCH_SIZE + im_i
+                if i >= len(indices):
+                    break
+                training_states += [np.moveaxis(gc.state(slice(indices[i] - state.shape[-1] + 1, indices[i] + 1)), 0, -1)]
+                training_values += [ov[indices[i]]]
+            training_states = np.stack(training_states)
+            training_values = np.stack(training_values)
+
+            player.learn(training_states, training_values)
+ 
 
 # run player
 while True:
@@ -73,6 +105,9 @@ while True:
 
         # save game_cache
         game_cache.save('cache/' + str(game_index) + '.npz')
+
+        # train the player
+        train()
 
         # switch game caches and clear it (in case it is an old one)
         game_index = game_index + 1 if game_index < MAX_CACHES - 1 else 0

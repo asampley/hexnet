@@ -39,6 +39,9 @@ class GameCache:
         cumulative weighted rewards will be.
         Return value is of shape (N, actions).
         """
+        if len(self) == 0:
+            return np.zeros(0)
+
         self.make_sequential()
 
         optimal_values = np.zeros(self._values.shape)
