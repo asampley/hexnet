@@ -46,9 +46,10 @@ class Net:
 
         self.output = dense2
         # create target output as the original output, but for the selected actions make it reward + gamma * (value at best action)
-        self.action_mask = tf.one_hot(self.action, self.ACTIONS, 1.0, 0.0, axis=-1, dtype=tf.float32)
-        self.output_increment = -self.output + tf.tile(tf.expand_dims(self.reward + self.gamma * tf.reduce_max(dense2_2, axis=-1), axis=-1), (1, self.ACTIONS))
-        self.target_output = tf.stop_gradient(self.output + tf.multiply(self.action_mask, self.output_increment))
+        with tf.variable_scope('target_output'):
+            self.action_mask = tf.one_hot(self.action, self.ACTIONS, 1.0, 0.0, axis=-1, dtype=tf.float32)
+            self.output_increment = -self.output + tf.tile(tf.expand_dims(self.reward + self.gamma * tf.reduce_max(dense2_2, axis=-1), axis=-1), (1, self.ACTIONS))
+            self.target_output = tf.stop_gradient(self.output + tf.multiply(self.action_mask, self.output_increment))
 
         # compute euclidean distance error
         with tf.name_scope("error"):
