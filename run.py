@@ -28,7 +28,7 @@ game_cache = game_caches[0]
 
 # restore player if we can
 player.restore()
-def policy(state):
+def calc_epsilon():
     global player
 
     iterations = player.net.global_step()
@@ -37,8 +37,8 @@ def policy(state):
     else:
         epsilon = ((EPSILON_ITERATION_END - iterations) * EPSILON_RANGE[0] + iterations * EPSILON_RANGE[1]) / EPSILON_ITERATION_END
 
-    return player.epsilon_greedy_action(state, epsilon)
-player.policy = policy
+    return epsilon
+player.policy = lambda state: player.epsilon_greedy_action(state, calc_epsilon())
 
 # create array to store 'state' of game, which is a sequence of images in the shape (height, width, time_steps)
 state = np.zeros((128, 256, 4))
@@ -172,9 +172,10 @@ while True:
             player.act(action)
 
             # write values on display image
-            cv2.putText(image_display, "Left:  " + str(values[0]), (0, image_display.shape[0] - 32), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0))
-            cv2.putText(image_display, "Stop:  " + str(values[1]), (0, image_display.shape[0] - 16), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0))
-            cv2.putText(image_display, "Right: " + str(values[2]), (0, image_display.shape[0]     ), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0))
+            cv2.putText(image_display, "Epsilon: " + str(calc_epsilon()), (0, image_display.shape[0] - 48), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0))
+            cv2.putText(image_display, "Left:    " + str(values[0])     , (0, image_display.shape[0] - 32), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0))
+            cv2.putText(image_display, "Stop:    " + str(values[1])     , (0, image_display.shape[0] - 16), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0))
+            cv2.putText(image_display, "Right:   " + str(values[2])     , (0, image_display.shape[0]     ), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0))
 
             time_step += 1
             image_state_previous = image_state
