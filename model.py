@@ -29,26 +29,22 @@ class Net:
         self._global_step = tf.Variable(0, name='global_step', trainable=False)
 
         # network with path for input states and expected output
-        conv1 = self.conv('conv1', self.states, [5,5], [2,2], self.TIME_STEPS, 32)
-        conv1_2 = self.conv('conv1', self.states2, [5,5], [2,2], self.TIME_STEPS, 32)
-        pool1 = tf.nn.pool(conv1, [2,2], 'MAX', padding='SAME', name='pool1')
-        pool1_2 = tf.nn.pool(conv1_2, [2,2], 'MAX', padding='SAME', name='pool1')
-        conv2 = self.conv('conv2', pool1, [5,5], [2,2], 32, 64)
-        conv2_2 = self.conv('conv2', pool1_2, [5,5], [2,2], 32, 64)
-        pool2 = tf.nn.pool(conv2, [2,2], 'MAX', padding='SAME', name='pool2')
-        pool2_2 = tf.nn.pool(conv2_2, [2,2], 'MAX', padding='SAME', name='pool2')
-        flat1 = tf.reshape(pool2, [-1, pool2.get_shape()[1] * pool2.get_shape()[2] * pool2.get_shape()[3]])
-        flat1_2 = tf.reshape(pool2_2, [-1, pool2_2.get_shape()[1] * pool2_2.get_shape()[2] * pool2_2.get_shape()[3]])
-        dense1 = tf.layers.dense(flat1, 1024, activation=tf.nn.relu, name='dense1')
-        dense1_2 = tf.layers.dense(flat1_2, 1024, activation=tf.nn.relu, name='dense1', reuse=True)
-        dense2 = tf.layers.dense(dense1, self.ACTIONS, name='dense2')
-        dense2_2 = tf.layers.dense(dense1_2, self.ACTIONS, name='dense2', reuse=True)
+        self.path_output = []
+        for path_states in (self.states, self.states2):
+            conv1 = self.conv('conv1', path_states, [8,8], [4,4], self.TIME_STEPS, 16)
+            conv2 = self.conv('conv2', conv1, [4,4], [2,2], 16, 32)
+            flat1 = tf.layers.flatten(conv2)
+            dense1 = tf.layers.dense(flat1, 256, activation=tf.nn.relu, name='dense1', reuse=tf.AUTO_REUSE)
+            dense2 = tf.layers.dense(dense1, self.ACTIONS, name='dense2', reuse=tf.AUTO_REUSE)
+            self.path_output += [dense2]
 
-        self.output = dense2
+        self.output = self.path_output[0]
+        self.next_output = self.path_output[1]
+
         # create target output as the original output, but for the selected actions make it reward + gamma * (value at best action)
         with tf.variable_scope('target_output'):
             self.action_mask = tf.one_hot(self.action, self.ACTIONS, 1.0, 0.0, axis=-1, dtype=tf.float32)
-            self.output_increment = -self.output + tf.tile(tf.expand_dims(self.reward + self.gamma * tf.reduce_max(dense2_2, axis=-1), axis=-1), (1, self.ACTIONS))
+            self.output_increment = -self.output + tf.tile(tf.expand_dims(self.reward + self.gamma * tf.reduce_max(self.next_output, axis=-1), axis=-1), (1, self.ACTIONS))
             self.target_output = tf.stop_gradient(self.output + tf.multiply(self.action_mask, self.output_increment))
 
         # compute euclidean distance error
