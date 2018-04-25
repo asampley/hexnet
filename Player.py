@@ -62,12 +62,25 @@ class Player:
         Return the action selected by the policy
         """
         return self.policy(state)
+    
+    def epsilon_greedy_action(self, state, epsilon):
+        if np.random.rand() < epsilon:
+            return self.random_action(state)
+        else:
+            return self.best_action(state)
 
     def best_action(self, state):
         """
         Get the best action for a state
         """
         action = np.argmax(self.value(state))
+        return action
+
+    def random_action(self, state):
+        """
+        Get a random action based on the size of actionMap
+        """
+        action = np.random.randint(len(self.actionMap))
         return action
 
     def learn(self, states, next_ims, actions, rewards, gamma):

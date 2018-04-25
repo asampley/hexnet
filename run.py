@@ -13,6 +13,8 @@ DEAD_REWARD = -10
 MAX_CACHES = 100
 GAMMA = 0.9
 BATCH_SIZE = 50
+EPSILON_RANGE = (1.0, 0.1)
+EPSILON_ITERATION_END = 1e6
 
 # create finite state machine variable
 fsm = 'gameover'
@@ -26,6 +28,17 @@ game_cache = game_caches[0]
 
 # restore player if we can
 player.restore()
+def policy(state):
+    global player
+
+    iterations = player.net.global_step()
+    if iterations >= EPSILON_ITERATION_END:
+        epsilon = EPSILON_RANGE[1]
+    else:
+        epsilon = ((EPSILON_ITERATION_END - iterations) * EPSILON_RANGE[0] + iterations * EPSILON_RANGE[1]) / EPSILON_ITERATION_END
+
+    return player.epsilon_greedy_action(state, epsilon)
+player.policy = policy
 
 # create array to store 'state' of game, which is a sequence of images in the shape (height, width, time_steps)
 state = np.zeros((128, 256, 4))
