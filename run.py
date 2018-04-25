@@ -134,7 +134,6 @@ while True:
         if fsm == 'restarting':
             # restart the game
             player.gc.restart()
-            time_step = 0
         elif fsm == 'gameover':
             fsm = 'restarting'
 
@@ -153,6 +152,8 @@ while True:
                 game_caches += [GameCache()]
             game_cache = game_caches[game_index]
             game_cache.clear()
+            
+            time_step = 0
             
         elif fsm == 'playing':
             # if the game not over, add the new image to the state
