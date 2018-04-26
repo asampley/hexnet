@@ -13,14 +13,15 @@ class Net:
         self.SAVE_DIR = params['SAVE_DIR']      # string: directory to save summaries and the neural network
 
         # data, both input and labels
-        self.states = tf.placeholder(tf.float32, (None, self.HEIGHT, self.WIDTH, self.TIME_STEPS), 'state') # (batch, height, width, time_step)
-        self.poststate = tf.placeholder(tf.float32, (None, self.HEIGHT, self.WIDTH, 1), 'poststate') # (batch, height, width, 1)
+        self.states = tf.placeholder(tf.float32, (None, self.HEIGHT, self.WIDTH, self.TIME_STEPS + 1), 'state') # (batch, height, width, time_step + 1)
         self.action = tf.placeholder(tf.int32, (None,), 'action')
         self.reward = tf.placeholder(tf.float32, (None,), 'reward')
         self.gamma = tf.placeholder(tf.float32, (), 'gamma')
+        self.postterminal = tf.placeholder(tf.bool, (None,), 'postterminal')
 
         # create parallel path for getting the value of the subsequent state
-        self.states2 = tf.concat([self.states[...,1:], self.poststate], axis=-1)
+        self.states1 = self.states[...,:-1]
+        self.states2 = self.states[...,1:]
 
         # Set variable for dropout of each layer
         self.keep_prob = tf.placeholder(tf.float32, (), name='keep_prob') # scalar
@@ -30,7 +31,7 @@ class Net:
 
         # network with path for input states and expected output
         self.path_output = []
-        for path_states in (self.states, self.states2):
+        for path_states in (self.states1, self.states2):
             conv1 = self.conv('conv1', path_states, [8,8], [4,4], self.TIME_STEPS, 16)
             conv2 = self.conv('conv2', conv1, [4,4], [2,2], 16, 32)
             flat1 = tf.layers.flatten(conv2)
@@ -44,7 +45,8 @@ class Net:
         # create target output as the original output, but for the selected actions make it reward + gamma * (value at best action)
         with tf.variable_scope('target_output'):
             self.action_mask = tf.one_hot(self.action, self.ACTIONS, 1.0, 0.0, axis=-1, dtype=tf.float32)
-            self.output_increment = -self.output + tf.tile(tf.expand_dims(self.reward + self.gamma * tf.reduce_max(self.next_output, axis=-1), axis=-1), (1, self.ACTIONS))
+            self.future_reward = tf.multiply(tf.cast(self.postterminal, tf.float32), self.gamma * tf.reduce_max(self.next_output, axis=-1))
+            self.output_increment = -self.output + tf.tile(tf.expand_dims(self.reward + self.future_reward, axis=-1), (1, self.ACTIONS))
             self.target_output = tf.stop_gradient(self.output + tf.multiply(self.action_mask, self.output_increment))
 
         # compute euclidean distance error
@@ -79,12 +81,12 @@ class Net:
     def restore(self):
         self.saver.restore(self.session, os.path.join(self.SAVE_DIR, 'model.ckpt'))
     
-    def train(self, states, next_image, action, reward, gamma, keep_prob = 0.5):
+    def train(self, states, action, reward, next_terminal, gamma, keep_prob = 0.5):
         feed_dict = {
             self.states: states,
-            self.poststate: next_image,
             self.action: action,
             self.reward: reward,
+            self.postterminal: next_terminal,
             self.gamma: gamma,
             self.keep_prob: keep_prob
         }
@@ -107,12 +109,12 @@ class Net:
             [self.output],
             feed_dict=feed_dict)[0]
 
-    def summarize(self, states, next_image, action, reward, gamma):
+    def summarize(self, states, action, reward, next_terminal, gamma):
         feed_dict = {
             self.states: states,
-            self.poststate: next_image,
             self.action: action,
             self.reward: reward,
+            self.postterminal: next_terminal,
             self.gamma: gamma,
             self.keep_prob: 1.0
         }

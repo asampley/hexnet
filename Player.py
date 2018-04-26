@@ -83,10 +83,10 @@ class Player:
         action = np.random.randint(len(self.actionMap))
         return action
 
-    def learn(self, states, next_ims, actions, rewards, gamma):
+    def learn(self, states, actions, rewards, next_terminal, gamma):
         """
         Learn action values for states.
-        states is a (N, width, height, time_steps) size numpy array.
+        states is a (N, width, height, time_steps + 1) size numpy array.
         action_values is a (N, actions) size numpy array.
         """
-        self.net.train(states, next_ims, actions, rewards, gamma)
+        self.net.train(states, actions, rewards, next_terminal, gamma)
