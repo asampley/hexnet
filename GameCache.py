@@ -1,26 +1,33 @@
 import numpy as np
 
 class GameCache:
-    def __init__(self):
-        self._sequential = False
-        self._values = []
-        self._states = []
-        self._actions = []
-        self._rewards = []
-        self._terminal = []
+    def __init__(self, max_size):
+        self._allocated = False
+        self._values = None
+        self._states = None
+        self._actions = None
+        self._rewards = None
+        self._terminal = None
         self._len = 0
+        self._max_size = max_size
+        self._push_index = 0
 
     def __len__(self):
         return self._len
 
     def clear(self):
-        self._sequential = False
-        self._values = []
-        self._states = []
-        self._actions = []
-        self._rewards = []
-        self._terminal = []
         self._len = 0
+        self._push_index = 0
+
+    def reallocate(self, state_shape, num_actions):
+        self._allocated = True
+        self._states = np.zeros((self._max_size,) + state_shape, np.uint8)
+        self._values = np.zeros((self._max_size, num_actions), np.float32)
+        self._actions = np.zeros((self._max_size,), np.int32)
+        self._rewards = np.zeros((self._max_size,), np.float32)
+        self._terminal = np.zeros((self._max_size,), np.bool)
+        self._len = 0
+        self._push_index = 0
 
     def state(self, index):
         return self._from_array(self._states, index)
@@ -38,7 +45,6 @@ class GameCache:
         return self._from_array(self._terminal, index)
 
     def _from_array(self, array, index):
-        self.make_sequential()
         return array[index,...]
 
     def optimal_values(self, gamma):
@@ -50,8 +56,6 @@ class GameCache:
         """
         if len(self) == 0:
             return np.zeros(0)
-
-        self.make_sequential()
 
         optimal_values = self._values.copy()
         
@@ -77,68 +81,34 @@ class GameCache:
         reward_append = np.array([reward])
         terminal_append = np.array([terminal])
 
-        if self._sequential:
-            self._sequential = False
-            if len(self._states) == 0:
-                self._states = [state_append]
-            else:
-                self._states = [self._states, state_append]
-            if len(self._values) == 0:
-                self._values = [values_append]
-            else:
-                self._values = [self._values, values_append]
-            if len(self._actions) == 0:
-                self._actions = [action_append]
-            else:
-                self._actions = [self._actions, action_append]
-            if len(self._rewards) == 0:
-                self._rewards = [reward_append]
-            else:
-                self._rewards = [self._rewards, reward_append]
-            if len(self._terminal) == 0:
-                self._terminal = [terminal_append]
-            else:
-                self._terminal = [self._terminal, terminal_append]
-        else:
-            self._states += [state_append]
-            self._values += [values_append]
-            self._actions += [action_append]
-            self._rewards += [reward_append]
-            self._terminal += [terminal_append]
-        self._len += 1
-
-    def make_sequential(self):
-        """
-        Make the game cache store all its data sequentially, to make
-        it appropriate for saving to a file.
-        """
-        if self._sequential:
-            return
-        else:
-            self._sequential = True
-            if len(self) > 0:
-                self._states = np.concatenate(self._states, axis=0)
-                self._values = np.concatenate(self._values, axis=0)
-                self._actions = np.concatenate(self._actions, axis=0)
-                self._rewards = np.concatenate(self._rewards, axis=0)
-                self._terminal = np.concatenate(self._terminal, axis=0)
-            else:
-                self._states = np.zeros(0)
-                self._values = np.zeros(0)
-                self._actions = np.zeros(0)
-                self._rewards = np.zeros(0)
-                self._terminal = np.zeros(0)
+        if not self._allocated:
+            self.reallocate(state.shape, values.size)
+            
+        self._states[self._push_index,...] = state_append
+        self._values[self._push_index,...] = values_append
+        self._actions[self._push_index,...] = action_append
+        self._rewards[self._push_index,...] = reward_append
+        self._terminal[self._push_index,...] = terminal_append
+            
+        self._push_index = (self._push_index + 1) % self._max_size
+        self._len = min(self._len + 1, self._max_size)
 
     def save(self, filename):
-        self.make_sequential()
-        np.savez(filename, states=self._states, values=self._values, actions=self._actions, rewards=self._rewards, terminal=self._terminal)
+        np.savez(filename, 
+                states=self._states, 
+                values=self._values, 
+                actions=self._actions, 
+                rewards=self._rewards, 
+                terminal=self._terminal,
+                max_size=self._max_size)
 
     def load(self, filename):
-        self._sequential = True
-        data = np.load(filename)
-        self._states = data['states']
-        self._values = data['values']
-        self._actions = data['actions']
-        self._rewards = data['rewards']
-        self._terminal = data['terminal']
-        self._len = self._states.shape[0]
+        with np.load(filename) as data:
+            self._sequential = True
+            self._states = data['states']
+            self._values = data['values']
+            self._actions = data['actions']
+            self._rewards = data['rewards']
+            self._terminal = data['terminal']
+            self._max_size = data['max_size']
+            self._len = self._states.shape[0]

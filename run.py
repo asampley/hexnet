@@ -10,7 +10,7 @@ import math
 # constants
 LIVE_REWARD = 1
 DEAD_REWARD = -10
-MAX_CACHES = 100
+MAX_CACHE = 100000
 GAMMA = 0.9
 BATCH_SIZE = 50
 EPSILON_RANGE = (1.0, 0.1)
@@ -23,7 +23,12 @@ fsm = 'gameover'
 player = Player()
 gameover_matcher = TemplateMatcher(cv2.Canny(cv2.imread('res/gameover.png'), 50, 200), 0.5)
 window_grabber = WindowGrabber()
-game_cache = GameCache()
+game_cache = GameCache(MAX_CACHE)
+try:
+    game_cache.load('cache.npz')
+    print('Loaded previous cache')
+except FileNotFoundError:
+    pass
 
 # restore player if we can
 player.restore()
@@ -71,28 +76,16 @@ def train():
         return
     
     # randomly permute states and iterate
-    indices = np.random.permutation(np.arange(state.shape[-1] - 1, len(gc) - 1))
-    
-    for batch_i in range(0, math.ceil(indices.shape[0] / BATCH_SIZE)):
-        training_states = []
-        training_next_ims = []
-        training_rewards = []
-        training_actions = []
-        training_next_terminal = []
-        for im_i in range(0, BATCH_SIZE):
-            i = batch_i * BATCH_SIZE + im_i
-            if i >= len(indices):
-                break
-            training_states += [gc.state(indices[i])]
-            training_rewards += [gc.reward(indices[i])]
-            training_actions += [gc.action(indices[i])]
-            training_next_terminal += [gc.terminal(indices[i] + 1)]
-        
-        training_states = np.stack(training_states)
-        training_rewards = np.stack(training_rewards)
-        training_actions = np.stack(training_actions)
-        training_next_terminal = np.stack(training_next_terminal)
+    indices = np.random.permutation(len(gc))
 
+    for batch_i in range(0, math.ceil(indices.shape[0] / BATCH_SIZE)):
+        batch_indices = indices[batch_i * BATCH_SIZE : max(len(indices), (batch_i+1) * BATCH_SIZE)]
+       
+        training_states = gc.state(batch_indices)
+        training_rewards = gc.reward(batch_indices)
+        training_actions = gc.action(batch_indices)
+        training_next_terminal = gc.terminal(batch_indices)
+        
         player.learn(training_states, training_actions, training_rewards, training_next_terminal, GAMMA)
 
     # do summary on whatever the last batch was
@@ -141,9 +134,6 @@ while True:
             # write game over on display image
             cv2.putText(image_display, "Game Over", (0, image_display.shape[0]), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,255))
 
-            # save game_cache
-            game_cache.save('cache.npz')
-
             # train the player
             train()
 
@@ -182,4 +172,7 @@ while True:
     except KeyboardInterrupt:
         print('Saving player')
         player.save()
+        print('Saving cache')
+        game_cache.save('cache.npz')
+
         break
