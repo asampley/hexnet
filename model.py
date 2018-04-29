@@ -32,8 +32,8 @@ class Net:
         # network with path for input states and expected output
         self.path_output = []
         for path_states in (self.states1, self.states2):
-            conv1 = self.conv('conv1', path_states, [8,8], [4,4], self.TIME_STEPS, 16)
-            conv2 = self.conv('conv2', conv1, [4,4], [2,2], 16, 32)
+            conv1 = self.conv('conv1', path_states, [16,16], [8,8], self.TIME_STEPS, 16)
+            conv2 = self.conv('conv2', conv1, [8,8], [4,4], 16, 32)
             flat1 = tf.layers.flatten(conv2)
             dense1 = tf.layers.dense(flat1, 256, activation=tf.nn.relu, name='dense1', reuse=tf.AUTO_REUSE)
             dense2 = tf.layers.dense(dense1, self.ACTIONS, name='dense2', reuse=tf.AUTO_REUSE)

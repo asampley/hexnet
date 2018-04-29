@@ -9,7 +9,7 @@ class Player:
 
         # used to predict values of state
         params = {
-                'LEARNING_RATE': 1e-2,
+                'LEARNING_RATE': 1e-6,
                 'WIDTH': 256,
                 'HEIGHT': 128,
                 'TIME_STEPS': 4,

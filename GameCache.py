@@ -1,7 +1,8 @@
 import numpy as np
 
 class GameCache:
-    def __init__(self, max_size):
+    def __init__(self, fileprefix, max_size):
+        self._fileprefix = fileprefix
         self._allocated = False
         self._values = None
         self._states = None
@@ -19,9 +20,11 @@ class GameCache:
         self._len = 0
         self._push_index = 0
 
-    def reallocate(self, state_shape, num_actions):
+    def _reallocate(self, state_shape, num_actions):
         self._allocated = True
-        self._states = np.zeros((self._max_size,) + state_shape, np.uint8)
+        if self._states is not None:
+            del self._states
+        self._states = np.memmap(self._fileprefix + '_states.npy', dtype=np.uint8, mode='w+', shape=(self._max_size,) + state_shape)
         self._values = np.zeros((self._max_size, num_actions), np.float32)
         self._actions = np.zeros((self._max_size,), np.int32)
         self._rewards = np.zeros((self._max_size,), np.float32)
@@ -82,7 +85,7 @@ class GameCache:
         terminal_append = np.array([terminal])
 
         if not self._allocated:
-            self.reallocate(state.shape, values.size)
+            self._reallocate(state.shape, values.size)
             
         self._states[self._push_index,...] = state_append
         self._values[self._push_index,...] = values_append
@@ -93,22 +96,25 @@ class GameCache:
         self._push_index = (self._push_index + 1) % self._max_size
         self._len = min(self._len + 1, self._max_size)
 
-    def save(self, filename):
-        np.savez(filename, 
-                states=self._states, 
+    def save(self):
+        np.savez(self._fileprefix + '_other.npz', 
                 values=self._values, 
                 actions=self._actions, 
                 rewards=self._rewards, 
                 terminal=self._terminal,
-                max_size=self._max_size)
+                max_size=self._max_size,
+                len=self._len)
 
-    def load(self, filename):
-        with np.load(filename) as data:
+    def load(self, state_shape):
+        with np.load(self._fileprefix + '_other.npz') as data:
             self._sequential = True
-            self._states = data['states']
             self._values = data['values']
             self._actions = data['actions']
             self._rewards = data['rewards']
             self._terminal = data['terminal']
             self._max_size = data['max_size']
-            self._len = self._states.shape[0]
+            self._len = data['len']
+            self._push_index = self._len if self._len < self._max_size else 0
+        if self._states is not None:
+            del self._states
+        self._states = np.memmap(self._fileprefix + '_states.dat', dtype=np.uint8, mode='r+', shape=(self._max_size,) + state_shape)

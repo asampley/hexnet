@@ -19,13 +19,18 @@ EPSILON_ITERATION_END = 1e6
 # create finite state machine variable
 fsm = 'gameover'
 
+# create array to store 'state' of game, which is a sequence of images in the shape (height, width, time_steps + 1)
+state = np.zeros((128, 256, 5))
+state_previous = np.zeros((128, 256, 5))
+
 # create information for the game
 player = Player()
 gameover_matcher = TemplateMatcher(cv2.Canny(cv2.imread('res/gameover.png'), 50, 200), 0.5)
 window_grabber = WindowGrabber()
-game_cache = GameCache(MAX_CACHE)
+game_cache = GameCache('cache', MAX_CACHE)
+
 try:
-    game_cache.load('cache.npz')
+    game_cache.load(state.shape)
     print('Loaded previous cache')
 except FileNotFoundError:
     pass
@@ -85,7 +90,10 @@ def train():
         training_rewards = gc.reward(batch_indices)
         training_actions = gc.action(batch_indices)
         training_next_terminal = gc.terminal(batch_indices)
-        
+
+        # rescale images from [0, 255] to [-0.5, 0.5]
+        training_states = training_states / 255 - 0.5
+
         player.learn(training_states, training_actions, training_rewards, training_next_terminal, GAMMA)
 
     # do summary on whatever the last batch was
@@ -173,6 +181,6 @@ while True:
         print('Saving player')
         player.save()
         print('Saving cache')
-        game_cache.save('cache.npz')
+        game_cache.save()
 
         break
