@@ -84,7 +84,7 @@ def train():
     indices = np.random.permutation(len(gc))
 
     for batch_i in range(0, math.ceil(indices.shape[0] / BATCH_SIZE)):
-        batch_indices = indices[batch_i * BATCH_SIZE : max(len(indices), (batch_i+1) * BATCH_SIZE)]
+        batch_indices = indices[batch_i * BATCH_SIZE : min(len(indices), (batch_i+1) * BATCH_SIZE)]
        
         training_states = gc.state(batch_indices)
         training_rewards = gc.reward(batch_indices)
