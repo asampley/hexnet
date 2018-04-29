@@ -1,4 +1,4 @@
 __pycache__/
-cache.npz
+cache_other.npz
 cache_states.npy
 model/
