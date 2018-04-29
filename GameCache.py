@@ -117,4 +117,4 @@ class GameCache:
             self._push_index = self._len if self._len < self._max_size else 0
         if self._states is not None:
             del self._states
-        self._states = np.memmap(self._fileprefix + '_states.dat', dtype=np.uint8, mode='r+', shape=(self._max_size,) + state_shape)
+        self._states = np.memmap(self._fileprefix + '_states.npy', dtype=np.uint8, mode='r+', shape=(self._max_size,) + state_shape)
