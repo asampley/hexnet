@@ -6,11 +6,13 @@ import argparse
 parser = argparse.ArgumentParser(description="View a game cache file")
 parser.add_argument("file", type=str, help="game cache file")
 parser.add_argument("--scale", type=float, default=None, help="scale factor of window")
+parser.add_argument("--size", type=float, nargs=3, default=(128,256,5), help="size of the state in the cache")
 
 args = parser.parse_args()
 
-cache = GameCache()
-cache.load(args.file)
+cache = GameCache(args.file, 0)
+cache.load(args.size)
+print("Loaded cache of length " + str(len(cache)))
 optimal_values = cache.optimal_values(0.9)
 
 index = 0

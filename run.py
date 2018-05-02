@@ -17,7 +17,7 @@ EPSILON_RANGE = (1.0, 0.1)
 EPSILON_ITERATION_END = 1e6
 
 # create finite state machine variable
-fsm = 'gameover'
+fsm = 'restarting'
 
 # create array to store 'state' of game, which is a sequence of images in the shape (height, width, time_steps + 1)
 state = np.zeros((128, 256, 5))
@@ -31,7 +31,7 @@ game_cache = GameCache('cache', MAX_CACHE)
 
 try:
     game_cache.load(state.shape)
-    print('Loaded previous cache')
+    print('Loaded previous cache of length ' + str(len(game_cache)))
 except FileNotFoundError:
     pass
 
@@ -127,9 +127,11 @@ while True:
         # update finite state machine
         if fsm == 'playing':
             if gameover:
+                print('Game over')
                 fsm = 'gameover'
         elif fsm == 'restarting':
             if not gameover:
+                print('New game started')
                 fsm = 'playing'
 
         # evalutate finite state machine (and sometimes update)
@@ -143,7 +145,9 @@ while True:
             cv2.putText(image_display, "Game Over", (0, image_display.shape[0]), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,255))
 
             # train the player
+            print ('Training on ' + str(len(game_cache)) + ' states')
             train()
+            print ('Training finished for step ' + str(player.net.global_step()))
 
             time_step = 0
             

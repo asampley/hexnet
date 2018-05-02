@@ -107,7 +107,6 @@ class GameCache:
 
     def load(self, state_shape):
         with np.load(self._fileprefix + '_other.npz') as data:
-            self._sequential = True
             self._values = data['values']
             self._actions = data['actions']
             self._rewards = data['rewards']
@@ -118,3 +117,4 @@ class GameCache:
         if self._states is not None:
             del self._states
         self._states = np.memmap(self._fileprefix + '_states.npy', dtype=np.uint8, mode='r+', shape=(self._max_size,) + state_shape)
+        self._allocated = True
