@@ -19,9 +19,12 @@ class Net:
         self.gamma = tf.placeholder(tf.float32, (), 'gamma')
         self.postterminal = tf.placeholder(tf.bool, (None,), 'postterminal')
 
+        # preprocess
+        self.states_processed = self.states / 255 - 0.5
+
         # create parallel path for getting the value of the subsequent state
-        self.states1 = self.states[...,:-1]
-        self.states2 = self.states[...,1:]
+        self.states1 = self.states_processed[...,:-1]
+        self.states2 = self.states_processed[...,1:]
 
         # Set variable for dropout of each layer
         self.keep_prob = tf.placeholder(tf.float32, (), name='keep_prob') # scalar

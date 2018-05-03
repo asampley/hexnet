@@ -6,6 +6,7 @@ import cv2
 import time
 import numpy as np
 import math
+import sys
 
 # constants
 LIVE_REWARD = 1
@@ -71,7 +72,7 @@ action = None
 action_previous = None
 reward_previous = None
 
-def train():
+def train(print_bar=True, bar_length=20):
     global player, game_cache
 
     # randomly permute game caches and iterate
@@ -83,7 +84,8 @@ def train():
     # randomly permute states and iterate
     indices = np.random.permutation(len(gc))
 
-    for batch_i in range(0, math.ceil(indices.shape[0] / BATCH_SIZE)):
+    batches = math.ceil(indices.shape[0] / BATCH_SIZE)
+    for batch_i in range(0, batches):
         batch_indices = indices[batch_i * BATCH_SIZE : min(len(indices), (batch_i+1) * BATCH_SIZE)]
        
         training_states = gc.state(batch_indices)
@@ -91,10 +93,19 @@ def train():
         training_actions = gc.action(batch_indices)
         training_next_terminal = gc.terminal(batch_indices)
 
-        # rescale images from [0, 255] to [-0.5, 0.5]
-        training_states = training_states / 255 - 0.5
-
         player.learn(training_states, training_actions, training_rewards, training_next_terminal, GAMMA)
+
+        # print progress bar
+        if print_bar:
+            fraction_done = batch_i / (batches - 1)
+            bar_segments = math.floor(bar_length * fraction_done)
+            sys.stdout.write('\r')
+            sys.stdout.write(('\r[%-' + str(bar_length) + 's] %d%%') % ('=' * bar_segments, fraction_done * 100))
+            sys.stdout.flush()
+
+    # print new line after progress bar after complete
+    if print_bar:
+        print()
 
     # do summary on whatever the last batch was
     player.net.summarize(training_states, training_actions, training_rewards, training_next_terminal, GAMMA)
