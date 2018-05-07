@@ -97,7 +97,10 @@ def train(print_bar=True, bar_length=20):
 
         # print progress bar
         if print_bar:
-            fraction_done = batch_i / (batches - 1)
+            if batches == 1:
+                fraction_done = 1
+            else:
+                fraction_done = batch_i / (batches - 1)
             bar_segments = math.floor(bar_length * fraction_done)
             sys.stdout.write('\r')
             sys.stdout.write(('\r[%-' + str(bar_length) + 's] %d%%') % ('=' * bar_segments, fraction_done * 100))
