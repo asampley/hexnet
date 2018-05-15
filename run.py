@@ -17,24 +17,25 @@ BATCH_SIZE = 50
 EPSILON_RANGE = (1.0, 0.1)
 EPSILON_ITERATION_END = 1e6
 
+IMAGE_SHAPE = (128, 256) # (height, width)
+IMAGES_BCK = 3
+IMAGES_FWD = 1
+IMAGES_PER_STATE = 1 + IMAGES_BCK + IMAGES_FWD # DO NOT CHANGE
+STATE_SHAPE = IMAGE_SHAPE + (IMAGES_PER_STATE,) # DO NOT CHANGE
+NUM_ACTIONS = 3
+
 # create finite state machine variable
 fsm = 'restarting'
 
 # create array to store 'state' of game, which is a sequence of images in the shape (height, width, time_steps + 1)
-state = np.zeros((128, 256, 5))
-state_previous = np.zeros((128, 256, 5))
+state = np.zeros(STATE_SHAPE)
+state_previous = np.zeros(STATE_SHAPE)
 
 # create information for the game
 player = Player()
 gameover_matcher = TemplateMatcher(cv2.Canny(cv2.imread('res/gameover.png'), 50, 200), 0.5)
 window_grabber = WindowGrabber()
-game_cache = GameCache('cache', MAX_CACHE)
-
-try:
-    game_cache.load(state.shape)
-    print('Loaded previous cache of length ' + str(len(game_cache)))
-except FileNotFoundError:
-    pass
+game_cache = GameCache('cache/', IMAGE_SHAPE, NUM_ACTIONS, MAX_CACHE)
 
 # restore player if we can
 player.restore()
@@ -49,10 +50,6 @@ def calc_epsilon():
 
     return epsilon
 player.policy = lambda state: player.epsilon_greedy_action(state, calc_epsilon())
-
-# create array to store 'state' of game, which is a sequence of images in the shape (height, width, time_steps + 1)
-state = np.zeros((128, 256, 5))
-state_previous = np.zeros((128, 256, 5))
 
 # select window
 print("Select window in 3 seconds")
@@ -87,8 +84,8 @@ def train(print_bar=True, bar_length=20):
     batches = math.ceil(indices.shape[0] / BATCH_SIZE)
     for batch_i in range(0, batches):
         batch_indices = indices[batch_i * BATCH_SIZE : min(len(indices), (batch_i+1) * BATCH_SIZE)]
-       
-        training_states = gc.state(batch_indices)
+        
+        training_states = gc.state(batch_indices, IMAGES_BCK, IMAGES_FWD)
         training_rewards = gc.reward(batch_indices)
         training_actions = gc.action(batch_indices)
         training_next_terminal = gc.terminal(batch_indices)
@@ -136,7 +133,7 @@ while True:
             reward_previous = DEAD_REWARD if gameover else LIVE_REWARD
 
             # push previous state
-            game_cache.push(state_previous, values_previous, action_previous, reward_previous, gameover)
+            game_cache.push(image_state_previous, values_previous, action_previous, reward_previous, gameover)
 
         # update finite state machine
         if fsm == 'playing':
