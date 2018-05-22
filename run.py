@@ -11,11 +11,13 @@ import sys
 # constants
 LIVE_REWARD = 1
 DEAD_REWARD = -10
+MIN_CACHE = 50000 # only train if we have this many states
 MAX_CACHE = 1000000
 GAMMA = 0.99
 BATCH_SIZE = 50
 EPSILON_RANGE = (1.0, 0.1)
 EPSILON_ITERATION_END = 1e6
+UPDATE_TARGET_ITERATIONS = 10000
 
 IMAGE_SHAPE = (128, 256) # (height, width)
 IMAGES_BCK = 3
@@ -83,6 +85,11 @@ def train(print_bar=True, bar_length=20):
 
     batches = math.ceil(indices.shape[0] / BATCH_SIZE)
     for batch_i in range(0, batches):
+        # update target weights every so many iterations
+        if player.net.global_step() % UPDATE_TARGET_ITERATIONS == 0:
+            print('\nUpdated target function weights') # newline to print nicely with bar
+            player.update_target_function()
+
         batch_indices = indices[batch_i * BATCH_SIZE : min(len(indices), (batch_i+1) * BATCH_SIZE)]
         
         training_states = gc.state(batch_indices, IMAGES_BCK, IMAGES_FWD)
@@ -138,7 +145,7 @@ while True:
         # update finite state machine
         if fsm == 'playing':
             if gameover:
-                print('Game over')
+                print('Game over with cache of size ' + str(len(game_cache)))
                 fsm = 'gameover'
         elif fsm == 'restarting':
             if not gameover:
@@ -154,11 +161,13 @@ while True:
 
             # write game over on display image
             cv2.putText(image_display, "Game Over", (0, image_display.shape[0]), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,255))
+            cv2.waitKey(1)
 
-            # train the player
-            print ('Training on ' + str(len(game_cache)) + ' states')
-            train()
-            print ('Training finished for step ' + str(player.net.global_step()))
+            if len(game_cache) >= MIN_CACHE:
+                # train the player
+                print ('Training on ' + str(len(game_cache)) + ' states')
+                train()
+                print ('Training finished for step ' + str(player.net.global_step()))
 
             time_step = 0
             

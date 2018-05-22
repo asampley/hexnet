@@ -94,3 +94,9 @@ class Player:
         action_values is a (N, actions) size numpy array.
         """
         self.net.train(states, actions, rewards, next_terminal, gamma)
+
+    def update_target_function(self):
+        """
+        Updates the function for computing the target for training
+        """
+        self.net.train_update_target_weights()

@@ -41,20 +41,29 @@ class Net:
 
         # network with path for input states and expected output
         self.path_output = []
-        for path_states in (self.states1, self.states2):
-            # create convolutional layers
-            conv = self.conv('conv0', path_states, self.CONV_KERNELS[0], self.CONV_STRIDES[0], self.TIME_STEPS, self.CONV_CHANNELS[0])
-            for i in range(len(self.CONV_KERNELS)):
-                conv = self.conv('conv' + str(i+1), conv, self.CONV_KERNELS[i], self.CONV_STRIDES[i], self.CONV_CHANNELS[i-1], self.CONV_CHANNELS[i])
-            # flatten output for dense layers
-            flat1 = tf.layers.flatten(conv)
-            # create dense layers
-            dense =  flat1
-            for i in range(len(self.DENSE)):
-                dense = tf.layers.dense(dense, self.DENSE[i], activation=tf.nn.relu, name='dense' + str(i), reuse=tf.AUTO_REUSE)
-            # create final output layer (one output for each action)
-            dense = tf.layers.dense(dense, self.ACTIONS, name='dense' + str(len(self.DENSE)), reuse=tf.AUTO_REUSE)
-            self.path_output += [dense]
+        paths = (('current', self.states1), ('future', self.states2))
+        for path_name, path_states in paths:
+            with tf.variable_scope(path_name):
+                # create convolutional layers
+                conv = self.conv('conv0', path_states, self.CONV_KERNELS[0], self.CONV_STRIDES[0], self.TIME_STEPS, self.CONV_CHANNELS[0])
+                for i in range(len(self.CONV_KERNELS)):
+                    conv = self.conv('conv' + str(i+1), conv, self.CONV_KERNELS[i], self.CONV_STRIDES[i], self.CONV_CHANNELS[i-1], self.CONV_CHANNELS[i])
+                # flatten output for dense layers
+                flat1 = tf.layers.flatten(conv)
+                # create dense layers
+                dense =  flat1
+                for i in range(len(self.DENSE)):
+                    dense = tf.layers.dense(dense, self.DENSE[i], activation=tf.nn.relu, name='dense' + str(i), reuse=tf.AUTO_REUSE)
+                # create final output layer (one output for each action)
+                dense = tf.layers.dense(dense, self.ACTIONS, name='dense' + str(len(self.DENSE)), reuse=tf.AUTO_REUSE)
+                self.path_output += [dense]
+
+        # create operation to update future path, but keeping it independent of the current path
+        # this assumes tf.get_collection returns both in the same order. Empirically this seems to be true.
+        current_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=paths[0][0])
+        future_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=paths[1][0])
+        self.update_future = [tf.assign(future_vars[i], current_vars[i], name=paths[0][0] + '_update_' + paths[1][0]) for i in range(len(current_vars))]
+        self.update_future = tf.group(*self.update_future)
 
         self.output = self.path_output[0]
         self.next_output = self.path_output[1]
@@ -114,6 +123,9 @@ class Net:
         return self.session.run(
             [self.train_fn],
             feed_dict=feed_dict)[0]
+
+    def train_update_target_weights(self):
+        self.session.run([self.update_future])
 
     def predict(self, states):
         """
