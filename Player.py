@@ -9,11 +9,15 @@ class Player:
 
         # used to predict values of state
         params = {
-                'LEARNING_RATE': 1e-4,
+                'LEARNING_RATE': 1e-3,
                 'WIDTH': 256,
                 'HEIGHT': 128,
                 'TIME_STEPS': 4,
                 'ACTIONS': 3,
+                'CONV_KERNELS': [[16,16], [8,8]],
+                'CONV_STRIDES': [[8,8], [4,4]],
+                'CONV_CHANNELS': [16, 32],
+                'DENSE_CHANNELS': [256],
                 'SAVE_DIR': 'model/'
                 }
         self.net = Net(params)

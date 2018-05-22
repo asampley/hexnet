@@ -9,8 +9,15 @@ class Net:
         self.HEIGHT = params['HEIGHT']          # int:    height of state image
         self.TIME_STEPS = params['TIME_STEPS']  # int:    number of time steps to evaluate as a state
         self.ACTIONS = params['ACTIONS']        # int:    number of actions available
-        LEARNING_RATE = params['LEARNING_RATE'] # float: learning rate for adam optimizer
+        self.CONV_KERNELS = params['CONV_KERNELS'] # list of kernel sizes for each convolution layer (e.g. [[16, 16], [8, 8]])
+        self.CONV_STRIDES = params['CONV_STRIDES'] # list of kernel strides for each convolution layer (e.g. [[8, 8], [4, 4]]
+        self.CONV_CHANNELS = params['CONV_CHANNELS'] # list of channels in each kernel (e.g. [16, 32])
+        self.DENSE = params['DENSE_CHANNELS']   # list of neurons in dense layers (e.g. [128, 256])
+        LEARNING_RATE = params['LEARNING_RATE'] # float:  learning rate for adam optimizer
         self.SAVE_DIR = params['SAVE_DIR']      # string: directory to save summaries and the neural network
+
+        assert len(self.CONV_KERNELS) == len(self.CONV_CHANNELS) and len(self.CONV_KERNELS) == len(self.CONV_CHANNELS)\
+                , 'Each convolution layer must have a kernel size, stride, and channel'
 
         # data, both input and labels
         self.states = tf.placeholder(tf.float32, (None, self.HEIGHT, self.WIDTH, self.TIME_STEPS + 1), 'state') # (batch, height, width, time_step + 1)
@@ -35,12 +42,19 @@ class Net:
         # network with path for input states and expected output
         self.path_output = []
         for path_states in (self.states1, self.states2):
-            conv1 = self.conv('conv1', path_states, [16,16], [8,8], self.TIME_STEPS, 16)
-            conv2 = self.conv('conv2', conv1, [8,8], [4,4], 16, 32)
-            flat1 = tf.layers.flatten(conv2)
-            dense1 = tf.layers.dense(flat1, 256, activation=tf.nn.relu, name='dense1', reuse=tf.AUTO_REUSE)
-            dense2 = tf.layers.dense(dense1, self.ACTIONS, name='dense2', reuse=tf.AUTO_REUSE)
-            self.path_output += [dense2]
+            # create convolutional layers
+            conv = self.conv('conv0', path_states, self.CONV_KERNELS[0], self.CONV_STRIDES[0], self.TIME_STEPS, self.CONV_CHANNELS[0])
+            for i in range(len(self.CONV_KERNELS)):
+                conv = self.conv('conv' + str(i+1), conv, self.CONV_KERNELS[i], self.CONV_STRIDES[i], self.CONV_CHANNELS[i-1], self.CONV_CHANNELS[i])
+            # flatten output for dense layers
+            flat1 = tf.layers.flatten(conv)
+            # create dense layers
+            dense =  flat1
+            for i in range(len(self.DENSE)):
+                dense = tf.layers.dense(dense, self.DENSE[i], activation=tf.nn.relu, name='dense' + str(i), reuse=tf.AUTO_REUSE)
+            # create final output layer (one output for each action)
+            dense = tf.layers.dense(dense, self.ACTIONS, name='dense' + str(len(self.DENSE)), reuse=tf.AUTO_REUSE)
+            self.path_output += [dense]
 
         self.output = self.path_output[0]
         self.next_output = self.path_output[1]
@@ -62,6 +76,8 @@ class Net:
         # Make summary op and file
         with tf.name_scope('summary'):
             tf.summary.scalar('error', self.error)
+            tf.summary.scalar('q_mean', tf.reduce_mean(self.output))
+            tf.summary.scalar('optimal_move_q_mean', tf.reduce_mean(tf.reduce_max(self.output, axis=0)))
             tf.summary.histogram('target_output', self.target_output)
             tf.summary.histogram('output', self.output)
 
