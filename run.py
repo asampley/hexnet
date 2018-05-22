@@ -117,15 +117,15 @@ while True:
         # grab the frame of the game
         image_raw = window_grabber.grab()
 
-        # create display image
-        image_display = image_raw.copy()
-
         # check if the game is over
         image_canny = cv2.Canny(image_raw, 50, 200)
         gameover = gameover_matcher.isMatch(image_canny)
 
         # create image for adding to the state
         image_state = cv2.cvtColor(cv2.resize(image_raw, (state.shape[1], state.shape[0])), cv2.COLOR_RGBA2GRAY)
+
+        # create display image
+        image_display = cv2.cvtColor(cv2.resize(image_state, (image_raw.shape[1], image_raw.shape[0]), interpolation=cv2.INTER_NEAREST), cv2.COLOR_GRAY2BGR)
 
         # add previous image to the game cache
         if time_step != 0:
