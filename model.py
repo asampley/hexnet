@@ -64,7 +64,8 @@ class Net:
             self.action_mask = tf.one_hot(self.action, self.ACTIONS, 1.0, 0.0, axis=-1, dtype=tf.float32)
             self.future_reward = tf.multiply(tf.cast(self.postterminal, tf.float32), self.gamma * tf.reduce_max(self.next_output, axis=-1))
             self.output_increment = -self.output + tf.tile(tf.expand_dims(self.reward + self.future_reward, axis=-1), (1, self.ACTIONS))
-            self.target_output = tf.stop_gradient(self.output + tf.multiply(self.action_mask, self.output_increment))
+            self.target_output = self.output + tf.multiply(self.action_mask, self.output_increment)
+            self.target_output = tf.stop_gradient(self.target_output)
 
         # compute euclidean distance error
         with tf.name_scope("error"):
