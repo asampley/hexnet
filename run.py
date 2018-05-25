@@ -7,23 +7,61 @@ import time
 import numpy as np
 import math
 import sys
+import argparse
+
+# read arguments
+parser = argparse.ArgumentParser()
+
+group = parser.add_argument_group('rewards')
+group.add_argument('--rewardlive', type=float, help='Reward for every frame the agent is alive. Default: 1', default=1)
+group.add_argument('--rewarddead', type=float, help='Reward for every frame the agent is dead. Default: -10', default=-10)
+
+group = parser.add_argument_group('cache')
+group.add_argument('--cacheprefix', type=str, help='Prefix for all cache files. Default: cache/', default='cache/')
+group.add_argument('--cachemin', type=int, help='Minimum cache size before training starts. Default: 50000', default=50000)
+group.add_argument('--cachemax', type=int, help='Maximum cache size before overwriting images. Default: 1000000', default=1000000)
+
+group = parser.add_argument_group('neural network')
+group.add_argument('--batchsize', type=int, help='Size of each batch for training the neural network. Default: 50', default=50)
+group.add_argument('--imagesize', type=int, nargs=2, help='Height and width of the image. Default: 128 256', default=[128, 256])
+group.add_argument('--imagecount', type=int, help='Number of images for each prediction by the network. Default: 4', default=4)
+group.add_argument('--updatebatches', type=int, help='Number of training batches to do before updating the target weights. Default: 10000', default=10000)
+group.add_argument('-k', '--kernel', dest='kernels', metavar=('height', 'width'), type=int, nargs=2, action='append'
+        , help='Add a convolution kernel. Can be used multiple times.')
+group.add_argument('-s', '--stride', dest='strides', metavar=('height', 'width'), type=int, nargs=2, action='append'
+        , help='Specify the stride (height, width) for each convolution. Can be used multiple times. Must be used the same number of times as --kernel.')
+group.add_argument('-c', '--channels', dest='channels', metavar='channels', type=int, action='append'
+        , help='Specify the number of channels for each convolution. Can be used multiple times. Must be used the same number of times as --kernel.')
+group.add_argument('-d', '--dense', dest='denses', metavar='neurons', type=int, action='append'
+        , help='Add a dense layer after the convolution layers with the specified number of neurons. Can be used multiple times.')
+group.add_argument('--savedir', type=str, help='Directory to save weights and training metrics. Default: model/', default='model/')
+
+group = parser.add_argument_group('machine learning')
+group.add_argument('--learningrate', type=float, help='Learning rate. Default: 1e-4', default=1e-4)
+group.add_argument('-g', '--gamma', type=float, help='Discount rate gamma. Default: 0.99', default=0.99)
+
+# parse arguments
+args = parser.parse_args()
+print(args)
+assert len(args.kernels) == len(args.strides), 'Must specify a --stride for each --kernel'
+assert len(args.kernels) == len(args.channels), 'Must specify a --channels for each --kernel'
 
 # constants
-LIVE_REWARD = 1
-DEAD_REWARD = -10
-MIN_CACHE = 50000 # only train if we have this many states
-MAX_CACHE = 1000000
-GAMMA = 0.99
-BATCH_SIZE = 50
+LIVE_REWARD = args.rewardlive
+DEAD_REWARD = args.rewarddead
+MIN_CACHE = args.cachemin # only train if we have this many states
+MAX_CACHE = args.cachemax
+GAMMA = args.gamma
+BATCH_SIZE = args.batchsize
 EPSILON_RANGE = (1.0, 0.1)
 EPSILON_ITERATION_END = 1e6
-UPDATE_TARGET_ITERATIONS = 10000
+UPDATE_TARGET_ITERATIONS = args.updatebatches
 
-IMAGE_SHAPE = (128, 256) # (height, width)
-IMAGES_BCK = 3
-IMAGES_FWD = 1
+IMAGE_SHAPE = args.imagesize # (height, width)
+IMAGES_BCK = args.imagecount - 1 # DO NOT CHANGE
+IMAGES_FWD = 1 # DO NOT CHANGE
 IMAGES_PER_STATE = 1 + IMAGES_BCK + IMAGES_FWD # DO NOT CHANGE
-STATE_SHAPE = IMAGE_SHAPE + (IMAGES_PER_STATE,) # DO NOT CHANGE
+STATE_SHAPE = IMAGE_SHAPE + [IMAGES_PER_STATE] # DO NOT CHANGE
 NUM_ACTIONS = 3
 
 # create finite state machine variable
@@ -34,10 +72,21 @@ state = np.zeros(STATE_SHAPE)
 state_previous = np.zeros(STATE_SHAPE)
 
 # create information for the game
-player = Player()
+player = Player(
+        learning_rate = args.learningrate
+        , width = IMAGE_SHAPE[1]
+        , height = IMAGE_SHAPE[0]
+        , time_steps = args.imagecount
+        , actions = NUM_ACTIONS
+        , conv_kernels = args.kernels
+        , conv_strides = args.strides
+        , conv_channels = args.channels
+        , dense_channels = args.denses
+        , save_dir = args.savedir
+        )
 gameover_matcher = TemplateMatcher(cv2.Canny(cv2.imread('res/gameover.png'), 50, 200), 0.5)
 window_grabber = WindowGrabber()
-game_cache = GameCache('cache/', IMAGE_SHAPE, NUM_ACTIONS, MAX_CACHE)
+game_cache = GameCache(args.cacheprefix, IMAGE_SHAPE, NUM_ACTIONS, MAX_CACHE)
 
 # restore player if we can
 player.restore()

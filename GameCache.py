@@ -4,7 +4,7 @@ import os
 class GameCache:
     def __init__(self, fileprefix, image_shape, num_actions, max_size):
         self._fileprefix = fileprefix
-        self._image_shape = image_shape
+        self._image_shape = tuple(image_shape)
         self._values = None
         self._images = None
         self._actions = None

@@ -3,22 +3,24 @@ from model import Net
 import numpy as np
 
 class Player:
-    def __init__(self):
+    def __init__(self, learning_rate=1e-4, width=256, height=128, time_steps=4, actions=3
+            , conv_kernels=[[16,16],[8,8]], conv_strides=[[8,8],[4,4]], conv_channels=[16,32], dense_channels=[256]
+            , save_dir='model/'):
         # used to control the game
         self.gc = GameController()
 
         # used to predict values of state
         params = {
-                'LEARNING_RATE': 1e-3,
-                'WIDTH': 256,
-                'HEIGHT': 128,
-                'TIME_STEPS': 4,
-                'ACTIONS': 3,
-                'CONV_KERNELS': [[16,16], [8,8]],
-                'CONV_STRIDES': [[8,8], [4,4]],
-                'CONV_CHANNELS': [16, 32],
-                'DENSE_CHANNELS': [256],
-                'SAVE_DIR': 'model/'
+                'LEARNING_RATE': learning_rate,
+                'WIDTH': width,
+                'HEIGHT':height,
+                'TIME_STEPS': time_steps,
+                'ACTIONS': actions,
+                'CONV_KERNELS': conv_kernels,
+                'CONV_STRIDES': conv_strides,
+                'CONV_CHANNELS': conv_channels,
+                'DENSE_CHANNELS': dense_channels,
+                'SAVE_DIR': save_dir
                 }
         self.net = Net(params)
  
